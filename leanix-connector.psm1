@@ -1,4 +1,3 @@
-
 class LeanIXConnector{
     hidden [string]$AccessToken
     hidden [string]$TokenType
@@ -6,11 +5,11 @@ class LeanIXConnector{
     hidden [int]$ValidFor
 
 
-    [string]$ApiToken
+    [SecureString]$ApiToken
     [string]$LeanIxInstance
 
     # Constructor
-    LeanIXConnector([string]$Token, [string]$Instance){
+    LeanIXConnector([SecureString]$Token, [string]$Instance){
         $this.ApiToken = $Token
         $this.LeanIxInstance = $Instance
     }
@@ -23,8 +22,11 @@ class LeanIXConnector{
     # call the login url and store the access token
     hidden [void]Login(){
         try{
+            $tk = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+                [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($this.ApiToken))
+            
             [string]$auth_url = "https://$($this.LeanIxInstance).leanix.net/services/mtm/v1/oauth2/token"
-            [string]$auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("apitoken:$($this.ApiToken)"))
+            [string]$auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("apitoken:$($tk)"))
 
             [Hashtable]$headers = @{
                 "Authorization" = "Basic $auth"
@@ -75,15 +77,27 @@ class LeanIXConnector{
             [string]$graphqlQuery = "
             {
               allFactSheets$queryfilter {
+                totalCount
                 edges {
                   node {
                     id
                     displayName
                     fullName
+                    __typename
+        
+        
                     ... on Application {
+          
                       externalId {
                         externalId
                       }
+                    }
+                    ... on Project {
+                      externalId {
+                        externalId
+                      }
+                    }
+                    ... on BaseFactSheet {          
                       description
                       subscriptions {
                         edges {
@@ -107,6 +121,8 @@ class LeanIXConnector{
                 }
               }
             }"
+
+
             [Hashtable]$query = @{
                 query = $graphqlQuery
                 }
@@ -119,11 +135,12 @@ class LeanIXConnector{
                         displayName,
                         fullname,
                         description,
+                        @{n='type';e={$_.__typename}},
                         @{n='externalId';e={$_.externalId.externalId}},
-                        @{n='owners';e={$_.subscriptions.edges.node[0] | select @{n='username';e={$_.user.username}},
-                                                                                @{n='email';e={$_.user.email}},
-                                                                                @{n='displayname';e={$_.user.displayname}},
-                                                                                @{n='name';e={$_.roles[0].name}}}}
+                        @{n='owners';e={$_.subscriptions.edges.node | select @{n='Username';e={$_.user.username}},
+                                                                                @{n='Mail';e={$_.user.email}},
+                                                                                @{n='DisplayName';e={$_.user.displayname}},
+                                                                                @{n='Role';e={$_.roles[0].name}}}}
         }
         catch{
             throw $_
