@@ -155,3 +155,17 @@ class LeanIXConnector{
         return $this._GetFactsheets($queryFilter)
     }
 }
+
+
+function New-LeanIxConnection{
+    param(
+        [Parameter(Mandatory)]
+        [SecureString]$Token,
+        [Parameter(Mandatory)]
+        [string]$Instance
+    )
+
+    return [LeanIXConnector]::New($Token, $Instance)
+}
+
+Export-ModuleMember -Function New-LeanIxConnection
